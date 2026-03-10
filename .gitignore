@@ -30,7 +30,7 @@ pnpm-debug.log*
 
 # python
 __pycache__/
-backend/downloads/
+downloads/
 *.pyc
 *.pyo
 *.pyd
