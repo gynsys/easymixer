@@ -9,6 +9,7 @@ import os
 import urllib.parse
 import zipfile
 import time
+import concurrent.futures
 
 app = FastAPI()
 
@@ -69,17 +70,26 @@ class ValidateRequest(BaseModel):
 
 @app.post("/api/validate")
 def validate_urls(req: ValidateRequest):
-    results = []
-    for url in req.urls:
+    def validate_one(url: str):
         if not url:
-            results.append({"url": url, "success": False, "error": "URL vacía"})
-            continue
+            return {"url": url, "success": False, "error": "URL vacía"}
         res = downloader.validate_url(url)
-        results.append({
+        return {
             "url": url,
             "success": res["success"],
             "error": res.get("error")
-        })
+        }
+
+    results = []
+    # Usar hilos para validar en paralelo y acelerar el proceso
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(validate_one, url) for url in req.urls]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                results.append(future.result())
+            except Exception as e:
+                print(f"❌ Error en hilo de validación: {e}")
+    
     return {"results": results}
 
 @app.post("/api/download")

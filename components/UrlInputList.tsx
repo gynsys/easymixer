@@ -159,7 +159,10 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
             const results = response.data.results;
 
             setFiles(prev => prev.map(f => {
-                const res = results.find((r: any) => r.url === f.url);
+                const trimmedUrl = f.url.trim();
+                if (trimmedUrl === "") return f;
+
+                const res = results.find((r: any) => r.url.trim() === trimmedUrl);
                 if (res) {
                     return {
                         ...f,
@@ -167,7 +170,8 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
                         error: res.error
                     };
                 }
-                return f;
+                // Fallback if not found in results
+                return { ...f, status: "idle" };
             }));
         } catch (error) {
             console.error("Audit error:", error);
