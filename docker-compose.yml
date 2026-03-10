@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  # Servicio API (FastAPI)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: easymix_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./downloads:/app/downloads
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+
