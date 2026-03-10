@@ -65,17 +65,25 @@ def read_root():
 def favicon():
     return ""
 
+class ValidateItem(BaseModel):
+    id: str
+    url: str
+
 class ValidateRequest(BaseModel):
-    urls: List[str]
+    items: List[ValidateItem]
 
 @app.post("/api/validate")
 def validate_urls(req: ValidateRequest):
-    def validate_one(url: str):
-        if not url:
-            return {"url": url, "success": False, "error": "URL vacía"}
-        res = downloader.validate_url(url)
+    def validate_one(item: ValidateItem):
+        if not item.url:
+            return {"id": item.id, "success": False, "error": "URL vacía"}
+        
+        # Pequeño retardo para que el usuario vea el proceso (opcional, solicitado)
+        time.sleep(1)
+        
+        res = downloader.validate_url(item.url)
         return {
-            "url": url,
+            "id": item.id,
             "success": res["success"],
             "error": res.get("error")
         }
@@ -83,7 +91,7 @@ def validate_urls(req: ValidateRequest):
     results = []
     # Usar hilos para validar en paralelo y acelerar el proceso
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(validate_one, url) for url in req.urls]
+        futures = [executor.submit(validate_one, item) for item in req.items]
         for future in concurrent.futures.as_completed(futures):
             try:
                 results.append(future.result())

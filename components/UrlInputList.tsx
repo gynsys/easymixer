@@ -68,15 +68,20 @@ function AudioItem({ file, index, updateUrl, removeUrl, canRemove }: ItemProps) 
                     placeholder="https://ejemplo.com/audio.mp3"
                     className={cn(
                         "w-full pl-10 pr-10 py-2 bg-black border rounded-lg text-white text-sm transition-all outline-none",
-                        file.status === "valid" ? "border-emerald-500/50 focus:border-emerald-500" :
-                            file.status === "error" ? "border-red-500/50 focus:border-red-500" :
-                                "border-gray-700 focus:border-blue-500"
+                        file.status === "validating" ? "border-blue-500/50 focus:border-blue-500 ring-1 ring-blue-500/20" :
+                            file.status === "valid" ? "border-emerald-500/50 focus:border-emerald-500" :
+                                file.status === "error" ? "border-red-500/50 focus:border-red-500" :
+                                    "border-gray-700 focus:border-blue-500"
                     )}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     {file.status === "validating" && <Loader2 size={16} className="text-blue-500 animate-spin" />}
                     {file.status === "valid" && <CheckCircle size={16} className="text-emerald-500" />}
-                    {file.status === "error" && <AlertCircle size={16} className="text-red-500" title={file.error} />}
+                    {file.status === "error" && (
+                        <div title={file.error}>
+                            <AlertCircle size={16} className="text-red-500" />
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -148,21 +153,21 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
     };
 
     const handleBatchAudit = async () => {
-        const urlsToValidate = files.filter(f => f.url.trim() !== "").map(f => f.url);
-        if (urlsToValidate.length === 0) return;
+        const itemsToValidate = files
+            .filter(f => f.url.trim() !== "")
+            .map(f => ({ id: f.id, url: f.url }));
+
+        if (itemsToValidate.length === 0) return;
 
         // Mark all as validating
-        setFiles(files.map(f => f.url.trim() !== "" ? { ...f, status: "validating" } : f));
+        setFiles(prev => prev.map(f => f.url.trim() !== "" ? { ...f, status: "validating" } : f));
 
         try {
-            const response = await axios.post("http://localhost:8001/api/validate", { urls: urlsToValidate });
+            const response = await axios.post("http://localhost:8001/api/validate", { items: itemsToValidate });
             const results = response.data.results;
 
             setFiles(prev => prev.map(f => {
-                const trimmedUrl = f.url.trim();
-                if (trimmedUrl === "") return f;
-
-                const res = results.find((r: any) => r.url.trim() === trimmedUrl);
+                const res = results.find((r: any) => r.id === f.id);
                 if (res) {
                     return {
                         ...f,
@@ -170,8 +175,7 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
                         error: res.error
                     };
                 }
-                // Fallback if not found in results
-                return { ...f, status: "idle" };
+                return f;
             }));
         } catch (error) {
             console.error("Audit error:", error);
