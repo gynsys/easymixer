@@ -120,3 +120,29 @@ class DownloaderService:
         archivos = list(self.download_dir.glob("*.mp3"))
         archivos.sort(key=lambda x: x.stat().st_mtime, reverse=True)
         return [{"name": f.name, "size": f.stat().st_size} for f in archivos]
+
+    def validate_url(self, url: str) -> dict:
+        """
+        Verifica si una URL es válida y accesible sin descargar.
+        """
+        print(f"🔍 Validando URL: {url}")
+        comando = [
+            sys.executable, '-m', 'yt_dlp',
+            '--simulate',
+            '--get-id',
+            '--no-playlist',
+            '--no-warnings',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            '--referer', 'https://www.google.com/',
+            url
+        ]
+        
+        try:
+            resultado = subprocess.run(comando, capture_output=True, text=True, timeout=15)
+            if resultado.returncode == 0:
+                video_id = resultado.stdout.strip()
+                return {"success": True, "video_id": video_id}
+            else:
+                return {"success": False, "error": resultado.stderr}
+        except Exception as e:
+            return {"success": False, "error": str(e)}

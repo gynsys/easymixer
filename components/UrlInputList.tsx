@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Trash2, Link as LinkIcon, Download, Loader2, XCircle } from "lucide-react";
+import { Plus, Trash2, Link as LinkIcon, Download, Loader2, XCircle, CheckCircle, AlertCircle, ShieldCheck } from "lucide-react";
 import { AudioFile } from "./types";
 import { cn } from "@/lib/utils";
 import axios from "axios";
@@ -52,7 +52,7 @@ function AudioItem({ file, index, updateUrl, removeUrl, canRemove }: ItemProps) 
     };
 
     return (
-        <div className="flex items-center gap-2 bg-black border border-gray-800 p-2 rounded-lg">
+        <div className="flex items-center gap-2 bg-black border border-gray-800 p-2 rounded-lg group relative">
             <div className="w-6 h-8 flex items-center justify-center text-gray-500 text-xs font-bold shrink-0">
                 {index + 1}
             </div>
@@ -66,8 +66,18 @@ function AudioItem({ file, index, updateUrl, removeUrl, canRemove }: ItemProps) 
                     value={file.url}
                     onChange={(e) => updateUrl(file.id, e.target.value)}
                     placeholder="https://ejemplo.com/audio.mp3"
-                    className="w-full pl-10 pr-4 py-2 bg-black border border-gray-700 rounded-lg text-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none"
+                    className={cn(
+                        "w-full pl-10 pr-10 py-2 bg-black border rounded-lg text-white text-sm transition-all outline-none",
+                        file.status === "valid" ? "border-emerald-500/50 focus:border-emerald-500" :
+                            file.status === "error" ? "border-red-500/50 focus:border-red-500" :
+                                "border-gray-700 focus:border-blue-500"
+                    )}
                 />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    {file.status === "validating" && <Loader2 size={16} className="text-blue-500 animate-spin" />}
+                    {file.status === "valid" && <CheckCircle size={16} className="text-emerald-500" />}
+                    {file.status === "error" && <AlertCircle size={16} className="text-red-500" title={file.error} />}
+                </div>
             </div>
 
             <button
@@ -137,6 +147,34 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
         reader.readAsText(file);
     };
 
+    const handleBatchAudit = async () => {
+        const urlsToValidate = files.filter(f => f.url.trim() !== "").map(f => f.url);
+        if (urlsToValidate.length === 0) return;
+
+        // Mark all as validating
+        setFiles(files.map(f => f.url.trim() !== "" ? { ...f, status: "validating" } : f));
+
+        try {
+            const response = await axios.post("http://localhost:8001/api/validate", { urls: urlsToValidate });
+            const results = response.data.results;
+
+            setFiles(prev => prev.map(f => {
+                const res = results.find((r: any) => r.url === f.url);
+                if (res) {
+                    return {
+                        ...f,
+                        status: res.success ? "valid" : "error",
+                        error: res.error
+                    };
+                }
+                return f;
+            }));
+        } catch (error) {
+            console.error("Audit error:", error);
+            setFiles(prev => prev.map(f => f.status === "validating" ? { ...f, status: "idle" } : f));
+        }
+    };
+
     return (
         <div className="space-y-3">
             <div className="space-y-2">
@@ -152,18 +190,18 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
                 ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
                 <button
                     onClick={addUrl}
-                    className="flex-1 flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors justify-center border border-dashed border-blue-200"
+                    className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors justify-center border border-dashed border-blue-200"
                 >
                     <Plus size={16} />
-                    Añadir otra URL
+                    Añadir URL
                 </button>
 
-                <label className="flex-1 flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-lg transition-colors justify-center border border-dashed border-emerald-200 cursor-pointer">
+                <label className="flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-lg transition-colors justify-center border border-dashed border-emerald-200 cursor-pointer">
                     <Download size={16} className="rotate-180" />
-                    Importar desde .txt
+                    Importar .txt
                     <input
                         type="file"
                         accept=".txt"
@@ -171,6 +209,14 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
                         onChange={handleFileImport}
                     />
                 </label>
+
+                <button
+                    onClick={handleBatchAudit}
+                    className="flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors justify-center border border-dashed border-purple-200"
+                >
+                    <ShieldCheck size={16} />
+                    Auditar URLs
+                </button>
             </div>
         </div>
     );

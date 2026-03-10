@@ -64,6 +64,24 @@ def read_root():
 def favicon():
     return ""
 
+class ValidateRequest(BaseModel):
+    urls: List[str]
+
+@app.post("/api/validate")
+def validate_urls(req: ValidateRequest):
+    results = []
+    for url in req.urls:
+        if not url:
+            results.append({"url": url, "success": False, "error": "URL vacía"})
+            continue
+        res = downloader.validate_url(url)
+        results.append({
+            "url": url,
+            "success": res["success"],
+            "error": res.get("error")
+        })
+    return {"results": results}
+
 @app.post("/api/download")
 def download_audio(req: DownloadRequest):
     if not req.url:
