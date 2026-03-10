@@ -36,6 +36,10 @@ class CombineRequest(BaseModel):
 def read_root():
     return {"status": "EasyMix Backend Running"}
 
+@app.get("/favicon.ico")
+def favicon():
+    return ""
+
 @app.post("/api/download")
 def download_audio(req: DownloadRequest):
     if not req.url:
@@ -76,30 +80,33 @@ def combine_audio(req: CombineRequest):
         raise HTTPException(status_code=500, detail="No se pudieron descargar suficientes audios (Mínimo 2 exitosos)")
         
     # 2. Mix
-    result = mixer.combine_audio(final_items, method=req.method)
-    
-    if result["success"]:
-        # Cleanup source files (Eliminar archivos individuales)
-        print("🧹 Limpiando archivos temporales...")
-        for fname in filenames:
-            try:
-                os.remove(f"downloads/{fname}") 
-            except Exception as e:
-                print(f"⚠️ No se pudo borrar {fname}: {e}")
-                file_path = downloader.download_dir / fname
-                if file_path.exists():
-                    file_path.unlink()
-                    print(f"🗑️ Eliminado: {fname}")
-            except Exception as e:
-                print(f"⚠️ Error eliminando archivo temporal {fname}: {e}")
+    try:
+        result = mixer.combine_audio(final_items, method=req.method)
+        
+        if result["success"]:
+            # Cleanup source files
+            print("🧹 Limpiando archivos temporales...")
+            for item in final_items:
+                fname = item["filename"]
+                try:
+                    file_path = downloader.download_dir / fname
+                    if file_path.exists():
+                        file_path.unlink()
+                        print(f"🗑️ Eliminado: {fname}")
+                except Exception as e:
+                    print(f"⚠️ No se pudo borrar {fname}: {e}")
 
-        return {
-            "success": True,
-            "filename": result["filename"],
-            "download_url": f"/api/files/{result['filename']}"
-        }
-    else:
-        raise HTTPException(status_code=500, detail=result.get("error"))
+            return {
+                "success": True,
+                "filename": result["filename"],
+                "download_url": f"/api/files/{result['filename']}"
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.get("error", "Error en el mezclador"))
+            
+    except Exception as e:
+        print(f"❌ Error crítico en combine_audio: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/files/{filename}")
 def get_file(filename: str):

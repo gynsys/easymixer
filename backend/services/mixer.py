@@ -50,12 +50,17 @@ class MixerService:
             cmd.extend([str(output_path)])
             
             print(f"🎛️ Ejecutando FFmpeg: {' '.join(cmd)}")
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.run(cmd, capture_output=True, text=True)
             
-            if os.path.exists(output_path):
+            if process.returncode != 0:
+                print(f"❌ Error en FFmpeg: {process.stderr}")
+                return {"success": False, "error": f"Error de FFmpeg: {process.stderr[:200]}"}
+            
+            if output_path.exists():
                 return {"success": True, "filename": output_filename, "path": str(output_path)}
             else:
                  return {"success": False, "error": "Salida no generada"}
 
         except Exception as e:
+             print(f"❌ Excepción en Mixer: {e}")
              return {"success": False, "error": str(e)}
