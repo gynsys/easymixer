@@ -125,6 +125,18 @@ class DownloaderService:
         """
         Verifica si una URL es válida y accesible sin descargar.
         """
+        # Limpiar URL si es de YouTube para evitar problemas con parámetros de listas
+        if "youtube.com/watch" in url or "youtu.be/" in url:
+            try:
+                if "youtube.com/watch" in url:
+                    video_id = url.split("v=")[1].split("&")[0]
+                    url = f"https://www.youtube.com/watch?v={video_id}"
+                elif "youtu.be/" in url:
+                    video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
+                    url = f"https://www.youtube.com/watch?v={video_id}"
+            except:
+                pass # Si falla la limpieza, usamos la original
+
         print(f"🔍 Validando URL: {url}")
         comando = [
             sys.executable, '-m', 'yt_dlp',
@@ -132,6 +144,7 @@ class DownloaderService:
             '--get-id',
             '--no-playlist',
             '--no-warnings',
+            '--rm-cache-dir',
             '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             '--referer', 'https://www.google.com/',
             url
@@ -140,9 +153,13 @@ class DownloaderService:
         try:
             resultado = subprocess.run(comando, capture_output=True, text=True, timeout=15)
             if resultado.returncode == 0:
-                video_id = resultado.stdout.strip()
+                video_id = resultado.stdout.strip().split('\n')[-1] # Tomar solo la última línea por si hay warnings
                 return {"success": True, "video_id": video_id}
             else:
-                return {"success": False, "error": resultado.stderr}
+                # Extraer el error de yt-dlp de forma más descriptiva
+                error_msg = resultado.stderr.strip().split('\n')[-1] if resultado.stderr else "Error desconocido"
+                if "ERROR:" in error_msg:
+                    error_msg = error_msg.split("ERROR:")[1].strip()
+                return {"success": False, "error": error_msg}
         except Exception as e:
             return {"success": False, "error": str(e)}
