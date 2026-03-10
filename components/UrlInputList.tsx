@@ -94,7 +94,6 @@ function AudioItem({ file, index, updateUrl, removeUrl, canRemove }: ItemProps) 
 
 export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles: React.Dispatch<React.SetStateAction<AudioFile[]>> }) {
     const addUrl = () => {
-        if (files.length >= 10) return;
         setFiles([...files, { id: crypto.randomUUID(), url: "", status: "idle" }]);
     };
 
@@ -123,7 +122,6 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
 
             <button
                 onClick={addUrl}
-                disabled={files.length >= 10}
                 className="mt-4 flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors w-full justify-center border border-dashed border-blue-200"
             >
                 <Plus size={16} />
