@@ -28,10 +28,13 @@ class DownloaderService:
             '--audio-quality', '0',
             '-o', output_template,
             '--no-playlist',
-            '--print-json',  # Retornar JSON con metadata
+            '--print-json',
             '--no-warnings',
-            '--no-part', # Evitar archivos .part para reducir bloqueos (WinError 32)
-            '--no-overwrites', # Skip download if file exists
+            '--no-part',
+            '--no-overwrites',
+            '--rm-cache-dir', # Limpiar cache antes de intentar
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            '--referer', 'https://www.google.com/',
         ]
         
         if self.ffmpeg_path:
