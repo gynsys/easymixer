@@ -185,7 +185,19 @@ export default function AudioCombiner() {
                             <p className="text-green-800 font-medium mb-2">¡Tu audio está listo!</p>
                             <a
                                 href={downloadUrl}
-                                download={`easymix_output.${options.outputFormat}`}
+                                download={`easymix_output.${options.outputFormat === "mp3" ? (options.includeOriginals ? "zip" : "mp3") : "wav"}`}
+                                onClick={() => {
+                                    // Reset interface after a small delay to allow download to start
+                                    setTimeout(() => {
+                                        setFiles([
+                                            { id: "1", url: "", status: "idle" },
+                                            { id: "2", url: "", status: "idle" },
+                                        ]);
+                                        setDownloadUrl(null);
+                                        setProgress(0);
+                                        setGlobalError(null);
+                                    }, 500);
+                                }}
                                 className="inline-flex items-center justify-center px-6 py-2 bg-green-600 text-white rounded-full font-bold hover:bg-green-700 transition shadow-md"
                             >
                                 Descargar Archivo
