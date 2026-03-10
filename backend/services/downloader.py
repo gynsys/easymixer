@@ -126,18 +126,23 @@ class DownloaderService:
         Verifica si una URL es válida y accesible sin descargar.
         """
         # Limpiar URL si es de YouTube para evitar problemas con parámetros de listas
-        if "youtube.com/watch" in url or "youtu.be/" in url:
+        # Pero si detectamos que no es un formato estándar, lo dejamos pasar
+        clean_url = url.strip()
+        if "youtube.com/watch" in clean_url or "youtu.be/" in clean_url:
             try:
-                if "youtube.com/watch" in url:
-                    video_id = url.split("v=")[1].split("&")[0]
-                    url = f"https://www.youtube.com/watch?v={video_id}"
-                elif "youtu.be/" in url:
-                    video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
-                    url = f"https://www.youtube.com/watch?v={video_id}"
+                if "youtube.com/watch" in clean_url:
+                    parts = urllib.parse.parse_qs(urllib.parse.urlparse(clean_url).query)
+                    video_id = parts.get("v", [None])[0]
+                    if video_id:
+                        clean_url = f"https://www.youtube.com/watch?v={video_id}"
+                elif "youtu.be/" in clean_url:
+                    video_id = clean_url.split("youtu.be/")[1].split("?")[0].split("&")[0]
+                    if video_id:
+                        clean_url = f"https://www.youtube.com/watch?v={video_id}"
             except:
-                pass # Si falla la limpieza, usamos la original
+                pass # Usar original si falla parsing
 
-        print(f"🔍 Validando URL: {url}")
+        print(f"🔍 Validando URL: {clean_url}")
         comando = [
             sys.executable, '-m', 'yt_dlp',
             '--simulate',
@@ -145,21 +150,38 @@ class DownloaderService:
             '--no-playlist',
             '--no-warnings',
             '--rm-cache-dir',
+            '--no-check-certificate',
+            '--geo-bypass',
             '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             '--referer', 'https://www.google.com/',
-            url
+            clean_url
         ]
         
         try:
-            resultado = subprocess.run(comando, capture_output=True, text=True, timeout=15)
+            # Aumentar timeout a 30 segundos para evitar cortes en redes lentas
+            resultado = subprocess.run(comando, capture_output=True, text=True, timeout=30)
             if resultado.returncode == 0:
-                video_id = resultado.stdout.strip().split('\n')[-1] # Tomar solo la última línea por si hay warnings
+                # Capturar ID
+                lines = [line.strip() for line in resultado.stdout.split('\n') if line.strip()]
+                video_id = lines[-1] if lines else "unknown"
                 return {"success": True, "video_id": video_id}
             else:
-                # Extraer el error de yt-dlp de forma más descriptiva
-                error_msg = resultado.stderr.strip().split('\n')[-1] if resultado.stderr else "Error desconocido"
-                if "ERROR:" in error_msg:
-                    error_msg = error_msg.split("ERROR:")[1].strip()
+                stderr = resultado.stderr.strip() if resultado.stderr else ""
+                stdout = resultado.stdout.strip() if resultado.stdout else ""
+                
+                # Buscar mensaje de error específico
+                error_msg = "Error desconocido de validación"
+                if stderr:
+                    last_line = stderr.split('\n')[-1]
+                    if "ERROR:" in last_line:
+                        error_msg = last_line.split("ERROR:")[1].strip()
+                    else:
+                        error_msg = last_line
+                elif stdout:
+                    error_msg = stdout.split('\n')[-1]
+                
                 return {"success": False, "error": error_msg}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "Tiempo de espera agotado (Timeout 30s)"}
         except Exception as e:
             return {"success": False, "error": str(e)}

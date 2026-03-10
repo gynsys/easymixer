@@ -78,8 +78,8 @@ def validate_urls(req: ValidateRequest):
         if not item.url:
             return {"id": item.id, "success": False, "error": "URL vacía"}
         
-        # Pequeño retardo para que el usuario vea el proceso (opcional, solicitado)
-        time.sleep(1)
+        # Stagger para evitar ráfagas
+        time.sleep(0.5)
         
         res = downloader.validate_url(item.url)
         return {
@@ -88,17 +88,22 @@ def validate_urls(req: ValidateRequest):
             "error": res.get("error")
         }
 
-    results = []
-    # Usar hilos para validar en paralelo y acelerar el proceso
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(validate_one, item) for item in req.items]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                results.append(future.result())
-            except Exception as e:
-                print(f"❌ Error en hilo de validación: {e}")
+    # Mapa para asegurar que todos tengan respuesta
+    results_map = {item.id: {"id": item.id, "success": False, "error": "Error de procesamiento"} for item in req.items}
     
-    return {"results": results}
+    # Usar hilos para validar en paralelo y acelerar el proceso
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(validate_one, item): item.id for item in req.items}
+        for future in concurrent.futures.as_completed(futures):
+            item_id = futures[future]
+            try:
+                res = future.result()
+                results_map[item_id] = res
+            except Exception as e:
+                print(f"❌ Error en hilo de validación para {item_id}: {e}")
+                results_map[item_id]["error"] = str(e)
+    
+    return {"results": list(results_map.values())}
 
 @app.post("/api/download")
 def download_audio(req: DownloadRequest):
