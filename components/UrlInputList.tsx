@@ -121,11 +121,14 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
                     status: "idle" as const
                 }));
 
-                // Si la primera linea es vacia, la reemplazamos
-                if (files.length === 1 && files[0].url === "") {
+                // Filtramos los campos que ya tengan una URL escrita
+                const existingFilesWithContent = files.filter(f => f.url.trim() !== "");
+
+                // Si no hay nada escrito, reemplazamos todo. Si hay algo, lo conservamos y añadimos los nuevos.
+                if (existingFilesWithContent.length === 0) {
                     setFiles(newFiles);
                 } else {
-                    setFiles([...files, ...newFiles]);
+                    setFiles([...existingFilesWithContent, ...newFiles]);
                 }
             }
             // Reset input
