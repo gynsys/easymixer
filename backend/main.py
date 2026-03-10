@@ -78,9 +78,6 @@ def validate_urls(req: ValidateRequest):
         if not item.url:
             return {"id": item.id, "success": False, "error": "URL vacía"}
         
-        # Stagger para evitar ráfagas
-        time.sleep(0.5)
-        
         res = downloader.validate_url(item.url)
         return {
             "id": item.id,

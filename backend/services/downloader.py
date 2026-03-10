@@ -125,24 +125,9 @@ class DownloaderService:
         """
         Verifica si una URL es válida y accesible sin descargar.
         """
-        # Limpiar URL si es de YouTube para evitar problemas con parámetros de listas
-        # Pero si detectamos que no es un formato estándar, lo dejamos pasar
         clean_url = url.strip()
-        if "youtube.com/watch" in clean_url or "youtu.be/" in clean_url:
-            try:
-                if "youtube.com/watch" in clean_url:
-                    parts = urllib.parse.parse_qs(urllib.parse.urlparse(clean_url).query)
-                    video_id = parts.get("v", [None])[0]
-                    if video_id:
-                        clean_url = f"https://www.youtube.com/watch?v={video_id}"
-                elif "youtu.be/" in clean_url:
-                    video_id = clean_url.split("youtu.be/")[1].split("?")[0].split("&")[0]
-                    if video_id:
-                        clean_url = f"https://www.youtube.com/watch?v={video_id}"
-            except:
-                pass # Usar original si falla parsing
-
         print(f"🔍 Validando URL: {clean_url}")
+        
         comando = [
             sys.executable, '-m', 'yt_dlp',
             '--simulate',
@@ -152,36 +137,29 @@ class DownloaderService:
             '--rm-cache-dir',
             '--no-check-certificate',
             '--geo-bypass',
+            '--ignore-config',
             '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            '--referer', 'https://www.google.com/',
             clean_url
         ]
         
         try:
-            # Aumentar timeout a 30 segundos para evitar cortes en redes lentas
-            resultado = subprocess.run(comando, capture_output=True, text=True, timeout=30)
+            resultado = subprocess.run(comando, capture_output=True, text=True, timeout=20)
             if resultado.returncode == 0:
-                # Capturar ID
+                # Capturar ID (última línea no vacía)
                 lines = [line.strip() for line in resultado.stdout.split('\n') if line.strip()]
                 video_id = lines[-1] if lines else "unknown"
                 return {"success": True, "video_id": video_id}
             else:
                 stderr = resultado.stderr.strip() if resultado.stderr else ""
-                stdout = resultado.stdout.strip() if resultado.stdout else ""
-                
-                # Buscar mensaje de error específico
-                error_msg = "Error desconocido de validación"
+                error_msg = "Enlace no válido o restringido"
                 if stderr:
                     last_line = stderr.split('\n')[-1]
                     if "ERROR:" in last_line:
                         error_msg = last_line.split("ERROR:")[1].strip()
                     else:
                         error_msg = last_line
-                elif stdout:
-                    error_msg = stdout.split('\n')[-1]
-                
                 return {"success": False, "error": error_msg}
         except subprocess.TimeoutExpired:
-            return {"success": False, "error": "Tiempo de espera agotado (Timeout 30s)"}
+            return {"success": False, "error": "Tiempo agotado"}
         except Exception as e:
             return {"success": False, "error": str(e)}
