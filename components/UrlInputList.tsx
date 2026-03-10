@@ -105,6 +105,35 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
         setFiles(files.map(f => f.id === id ? { ...f, url, status: "idle" } : f));
     };
 
+    const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const content = event.target?.result as string;
+            const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l !== "");
+
+            if (lines.length > 0) {
+                const newFiles = lines.map(url => ({
+                    id: crypto.randomUUID(),
+                    url: url,
+                    status: "idle" as const
+                }));
+
+                // Si la primera linea es vacia, la reemplazamos
+                if (files.length === 1 && files[0].url === "") {
+                    setFiles(newFiles);
+                } else {
+                    setFiles([...files, ...newFiles]);
+                }
+            }
+            // Reset input
+            e.target.value = "";
+        };
+        reader.readAsText(file);
+    };
+
     return (
         <div className="space-y-3">
             <div className="space-y-2">
@@ -120,13 +149,26 @@ export function UrlInputList({ files, setFiles }: { files: AudioFile[]; setFiles
                 ))}
             </div>
 
-            <button
-                onClick={addUrl}
-                className="mt-4 flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors w-full justify-center border border-dashed border-blue-200"
-            >
-                <Plus size={16} />
-                Añadir otra URL de audio
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                <button
+                    onClick={addUrl}
+                    className="flex-1 flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors justify-center border border-dashed border-blue-200"
+                >
+                    <Plus size={16} />
+                    Añadir otra URL
+                </button>
+
+                <label className="flex-1 flex items-center gap-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-lg transition-colors justify-center border border-dashed border-emerald-200 cursor-pointer">
+                    <Download size={16} className="rotate-180" />
+                    Importar desde .txt
+                    <input
+                        type="file"
+                        accept=".txt"
+                        className="hidden"
+                        onChange={handleFileImport}
+                    />
+                </label>
+            </div>
         </div>
     );
 }

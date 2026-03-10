@@ -50,9 +50,15 @@ class CombineRequest(BaseModel):
     method: str = "concat"
     include_originals: bool = False
 
+@app.on_event("startup")
+def startup_event():
+    """Limpieza al iniciar la app"""
+    print("🚀 Aplicación iniciada. Ejecutando limpieza inicial...")
+    cleanup_old_files(max_age_seconds=0) # Borrar TODO al iniciar si se desea limpieza total, o 3600 para 1 hora
+
 @app.get("/")
 def read_root():
-    return {"status": "EasyMix Backend Running"}
+    return {"status": "EasyMix Backend Running", "cleanup": "Active"}
 
 @app.get("/favicon.ico")
 def favicon():
@@ -92,13 +98,17 @@ def combine_audio(req: CombineRequest):
     # We assume batch_results corresponds 1:1 to req.items (urls order preserved)
     for i, res in enumerate(batch_results):
         if res['success']:
-            item = req.items[i]
-            final_items.append({
-                "filename": res['filename']
-            })
+            fname = res['filename']
+            file_path = downloader.download_dir / fname
+            if file_path.exists():
+                final_items.append({
+                    "filename": fname
+                })
+            else:
+                print(f"⚠️ El archivo {fname} no existe en el disco a pesar de descarga exitosa.")
 
     if len(final_items) < 2:
-        raise HTTPException(status_code=500, detail="No se pudieron descargar suficientes audios (Mínimo 2 exitosos)")
+        raise HTTPException(status_code=500, detail="No se pudieron descargar suficientes audios válidos (Mínimo 2 requeridos)")
         
     # 2. Mix
     try:

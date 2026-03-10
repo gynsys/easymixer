@@ -18,8 +18,8 @@ class DownloaderService:
         """
         print(f"⬇️ Iniciando descarga: {url}")
         
-        # Template de salida
-        output_template = str(self.download_dir / '%(title)s.%(ext)s')
+        # Template de salida: usar ID para evitar problemas con caracteres especiales
+        output_template = str(self.download_dir / '%(id)s.%(ext)s')
         
         comando = [
             sys.executable, '-m', 'yt_dlp',
@@ -32,13 +32,13 @@ class DownloaderService:
             '--no-warnings',
             '--no-part',
             '--no-overwrites',
-            '--rm-cache-dir', # Limpiar cache antes de intentar
+            '--rm-cache-dir',
+            '--restrict-filenames', # Nombres de archivo más seguros
             '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             '--referer', 'https://www.google.com/',
         ]
         
         if self.ffmpeg_path:
-            # yt-dlp espera el directorio o el ejecutable
             comando.extend(['--ffmpeg-location', self.ffmpeg_path])
         
         comando.append(url)
@@ -46,16 +46,9 @@ class DownloaderService:
         print(f"🚀 Ejecutando comando: {comando}")
         
         try:
-            # Ejecutar yt-dlp
             resultado = subprocess.run(comando, capture_output=True, text=True)
             
             if resultado.returncode == 0:
-                # Parsear JSON de salida (última línea suele ser el JSON info)
-                # yt-dlp puede imprimir varias líneas, buscamos el JSON.
-                # Con --print-json, toda la info sale en stdout.
-                # A veces imprime el progreso, pero con --quiet (no puesto aquí para debug)
-                
-                # Intentamos parsear la info del video
                 video_info = {}
                 lines = resultado.stdout.strip().split('\n')
                 for line in lines:
@@ -65,17 +58,15 @@ class DownloaderService:
                     except:
                         continue
                 
-                filename = video_info.get('filename', 'desconocido')
-                # yt-dlp JSON devuelve filename PREVIO a conversión a veces.
-                # Calculamos el path final mp3
+                # Usar el ID como nombre de archivo base
+                video_id = video_info.get('id', 'desconocido')
                 title = video_info.get('title', 'audio')
-                # Buscamos el archivo mp3 más reciente si no podemos determinarlo exacto
-                # Pero con el template sabemos donde debería estar.
+                filename = f"{video_id}.mp3"
                 
                 return {
                     "success": True,
                     "title": title,
-                    "filename": f"{title}.mp3", # Estimado
+                    "filename": filename,
                     "info": video_info
                 }
             else:
