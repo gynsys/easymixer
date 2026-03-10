@@ -109,16 +109,17 @@ def combine_audio(req: CombineRequest):
             
             # 3. ZIP Logic (If requested)
             if req.include_originals:
-                zip_filename = f"easymix_pack_{int(time.time())}.zip"
+                pack_name = f"easymix_pack_{int(time.time())}"
+                zip_filename = f"{pack_name}.zip"
                 zip_path = downloader.download_dir / zip_filename
                 
                 with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    # Add combined file
-                    zipf.write(downloader.download_dir / final_filename, arcname=final_filename)
-                    # Add originals
+                    # Add combined file inside the pack folder
+                    zipf.write(downloader.download_dir / final_filename, arcname=f"{pack_name}/{final_filename}")
+                    # Add originals inside the pack folder's subfolder
                     for item in final_items:
                         fname = item["filename"]
-                        zipf.write(downloader.download_dir / fname, arcname=f"originales/{fname}")
+                        zipf.write(downloader.download_dir / fname, arcname=f"{pack_name}/originales/{fname}")
                 
                 # Cleanup combined MP3 as it's now inside the ZIP
                 (downloader.download_dir / final_filename).unlink()
