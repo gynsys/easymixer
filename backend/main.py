@@ -116,10 +116,10 @@ def combine_audio(req: CombineRequest):
                 with zipfile.ZipFile(zip_path, 'w') as zipf:
                     # Add combined file inside the pack folder
                     zipf.write(downloader.download_dir / final_filename, arcname=f"{pack_name}/{final_filename}")
-                    # Add originals inside the pack folder's subfolder
+                    # Add originals directly inside the pack folder (flat)
                     for item in final_items:
                         fname = item["filename"]
-                        zipf.write(downloader.download_dir / fname, arcname=f"{pack_name}/originales/{fname}")
+                        zipf.write(downloader.download_dir / fname, arcname=f"{pack_name}/{fname}")
                 
                 # Cleanup combined MP3 as it's now inside the ZIP
                 (downloader.download_dir / final_filename).unlink()
