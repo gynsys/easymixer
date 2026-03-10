@@ -9,7 +9,6 @@ import os
 import urllib.parse
 import zipfile
 import time
-import concurrent.futures
 
 app = FastAPI()
 
@@ -65,43 +64,6 @@ def read_root():
 def favicon():
     return ""
 
-class ValidateItem(BaseModel):
-    id: str
-    url: str
-
-class ValidateRequest(BaseModel):
-    items: List[ValidateItem]
-
-@app.post("/api/validate")
-def validate_urls(req: ValidateRequest):
-    def validate_one(item: ValidateItem):
-        if not item.url:
-            return {"id": item.id, "success": False, "error": "URL vacía"}
-        
-        res = downloader.validate_url(item.url)
-        return {
-            "id": item.id,
-            "success": res["success"],
-            "error": res.get("error")
-        }
-
-    # Mapa para asegurar que todos tengan respuesta
-    results_map = {item.id: {"id": item.id, "success": False, "error": "Error de procesamiento"} for item in req.items}
-    
-    # Usar hilos para validar en paralelo y acelerar el proceso
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {executor.submit(validate_one, item): item.id for item in req.items}
-        for future in concurrent.futures.as_completed(futures):
-            item_id = futures[future]
-            try:
-                res = future.result()
-                results_map[item_id] = res
-            except Exception as e:
-                print(f"❌ Error en hilo de validación para {item_id}: {e}")
-                results_map[item_id]["error"] = str(e)
-    
-    return {"results": list(results_map.values())}
-
 @app.post("/api/download")
 def download_audio(req: DownloadRequest):
     if not req.url:
@@ -115,8 +77,6 @@ def download_audio(req: DownloadRequest):
         return result
     else:
         raise HTTPException(status_code=500, detail=result.get("error", "Error desconocido"))
-
-
 
 @app.post("/api/combine")
 def combine_audio(req: CombineRequest):
@@ -172,7 +132,7 @@ def combine_audio(req: CombineRequest):
                 # Cleanup combined MP3 as it's now inside the ZIP
                 (downloader.download_dir / final_filename).unlink()
                 final_filename = zip_filename
-
+            
             # Cleanup source files (Always clean originals after processing)
             print("🧹 Limpiando originales temporales...")
             for item in final_items:

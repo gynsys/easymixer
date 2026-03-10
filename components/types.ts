@@ -5,7 +5,7 @@ export type AudioFile = {
     duration?: number;
     isLoadingMetadata?: boolean;
     webpage_url?: string;
-    status: "idle" | "validating" | "valid" | "error";
+    status: "idle" | "error";
     error?: string;
 };
 
