@@ -24,6 +24,7 @@ export default function AudioCombiner() {
         silenceBetween: 0,
         crossfade: false,
         outputFormat: "mp3",
+        includeOriginals: false,
     });
     const [processing, setProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -67,7 +68,7 @@ export default function AudioCombiner() {
                     url: f.url
                 })),
                 method,
-                // options passed but currently ignored by simple Python MVP
+                include_originals: options.includeOriginals,
             }, {
                 signal: abortControllerRef.current.signal
             });

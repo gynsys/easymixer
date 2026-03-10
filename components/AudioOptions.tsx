@@ -67,6 +67,20 @@ export function AudioOptions({ options, setOptions }: Props) {
                     Crossfade Suave (5s)
                 </label>
             </div>
+
+            {/* Include Originals (ZIP Pack) */}
+            <div className="flex items-center p-2 bg-blue-900/20 border border-blue-800/50 rounded-lg gap-2">
+                <input
+                    type="checkbox"
+                    id="includeOriginals"
+                    checked={options.includeOriginals}
+                    onChange={(e) => setOptions({ ...options, includeOriginals: e.target.checked })}
+                    className="w-4 h-4 text-blue-400 bg-black border-gray-700 rounded focus:ring-blue-500 focus:ring-offset-black"
+                />
+                <label htmlFor="includeOriginals" className="text-xs font-medium text-blue-100 cursor-pointer select-none">
+                    Incluir audios individuales (Descargar Pack ZIP)
+                </label>
+            </div>
         </div>
     );
 }

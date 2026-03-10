@@ -14,4 +14,5 @@ export type CombineOptions = {
     silenceBetween: number; // seconds
     crossfade: boolean;
     outputFormat: "mp3" | "wav";
+    includeOriginals: boolean;
 };

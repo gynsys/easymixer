@@ -7,6 +7,8 @@ from services.downloader import DownloaderService
 from services.mixer import MixerService
 import os
 import urllib.parse
+import zipfile
+import time
 
 app = FastAPI()
 
@@ -22,6 +24,21 @@ app.add_middleware(
 downloader = DownloaderService()
 mixer = MixerService()
 
+def cleanup_old_files(max_age_seconds=3600):
+    """Borra archivos en downloads con más de 1 hora de antigüedad"""
+    print("🧹 Iniciando limpieza de archivos antiguos...")
+    now = time.time()
+    count = 0
+    try:
+        for f in downloader.download_dir.iterdir():
+            if f.is_file() and (now - f.stat().st_mtime) > max_age_seconds:
+                f.unlink()
+                count += 1
+        if count > 0:
+            print(f"✅ Se borraron {count} archivos antiguos.")
+    except Exception as e:
+        print(f"⚠️ Error en limpieza: {e}")
+
 class DownloadRequest(BaseModel):
     url: str
 
@@ -31,6 +48,7 @@ class CombineItem(BaseModel):
 class CombineRequest(BaseModel):
     items: List[CombineItem]
     method: str = "concat"
+    include_originals: bool = False
 
 @app.get("/")
 def read_root():
@@ -61,6 +79,9 @@ def combine_audio(req: CombineRequest):
     if not req.items or len(req.items) < 2:
         raise HTTPException(status_code=400, detail="Mínimo 2 Audiosequeridos")
     
+    # 0. Limpieza preventiva de archivos viejos
+    cleanup_old_files()
+
     # 1. Download Batch (Extract URLs)
     urls = [item.url for item in req.items]
     batch_results = downloader.download_batch(urls)
@@ -84,22 +105,40 @@ def combine_audio(req: CombineRequest):
         result = mixer.combine_audio(final_items, method=req.method)
         
         if result["success"]:
-            # Cleanup source files
-            print("🧹 Limpiando archivos temporales...")
+            final_filename = result["filename"]
+            
+            # 3. ZIP Logic (If requested)
+            if req.include_originals:
+                zip_filename = f"easymix_pack_{int(time.time())}.zip"
+                zip_path = downloader.download_dir / zip_filename
+                
+                with zipfile.ZipFile(zip_path, 'w') as zipf:
+                    # Add combined file
+                    zipf.write(downloader.download_dir / final_filename, arcname=final_filename)
+                    # Add originals
+                    for item in final_items:
+                        fname = item["filename"]
+                        zipf.write(downloader.download_dir / fname, arcname=f"originales/{fname}")
+                
+                # Cleanup combined MP3 as it's now inside the ZIP
+                (downloader.download_dir / final_filename).unlink()
+                final_filename = zip_filename
+
+            # Cleanup source files (Always clean originals after processing)
+            print("🧹 Limpiando originales temporales...")
             for item in final_items:
                 fname = item["filename"]
                 try:
                     file_path = downloader.download_dir / fname
                     if file_path.exists():
                         file_path.unlink()
-                        print(f"🗑️ Eliminado: {fname}")
                 except Exception as e:
                     print(f"⚠️ No se pudo borrar {fname}: {e}")
 
             return {
                 "success": True,
-                "filename": result["filename"],
-                "download_url": f"/api/files/{result['filename']}"
+                "filename": final_filename,
+                "download_url": f"/api/files/{final_filename}"
             }
         else:
             raise HTTPException(status_code=500, detail=result.get("error", "Error en el mezclador"))
